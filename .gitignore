@@ -1,0 +1,12 @@
+# Runtime files the hooks create next to themselves when run from this folder
+hooks/state/
+hooks/logs/
+hooks/backup/
+
+# Claude Code's per-folder local settings (personal "don't ask again" rules)
+.claude/settings.local.json
+
+# Test runs
+tests/run-*/
+
+*.bak
