@@ -31,13 +31,51 @@ and Claude Code's normal dialog decides.
 
 - Windows 10 or 11 with PowerShell 7 (`pwsh`). Windows PowerShell 5.1 isn't supported.
 - Claude Code with hooks support: the Claude desktop app, the CLI or an IDE extension. Tested with the
-  desktop app on Claude Code 2.1.299. The end-of-turn question alerts read the desktop app's "next step"
+  desktop app on Claude Code 2.1.299 and 2.1.304. The end-of-turn question alerts read the desktop app's "next step"
   box; elsewhere, set `TELEGRAM_TURN_ALERTS=all` (see [Configuration](#configuration)).
 - A Telegram account and the Telegram app on your phone.
 
 The scripts use Windows-only pieces (named mutexes, the Recycle Bin). macOS and Linux are untested.
 
-## Setup
+## Quick start
+
+Clone or download this repo, then run the setup from its folder:
+
+```powershell
+.\setup.cmd
+```
+
+The setup asks a few questions and walks you through everything:
+
+1. Checks PowerShell 7, your Claude settings, and policies that would block hooks. If PowerShell 7 is
+   missing, `setup.cmd` tells you how to install it.
+2. Asks which features you want: phone approvals, end-of-turn questions, and the push/merge gate.
+3. Helps you create (or reuse) a Telegram bot. You paste the token at a hidden prompt; setup checks it with
+   Telegram and stores it in your user environment.
+4. Finds your chat ID: you send a short code it shows you (like `setup 4821`) to your bot.
+5. Copies the hooks to `~\.claude\hooks\`.
+6. Merges `~\.claude\settings.json`, after backing it up. Your other settings and other tools' hooks stay;
+   it shows what it will add and asks before writing.
+7. Adds the push/merge note to `~\.claude\CLAUDE.md`, between markers so it can be removed cleanly.
+8. Sends a test approval and a test question to your phone.
+
+Running it again is safe: it updates its own entries and leaves the rest alone. Useful options (pass them to
+`setup.cmd` or `pwsh -File setup.ps1`):
+
+| Option | Effect |
+|---|---|
+| `-Features approve,turn` | Install only some features (`approve`, `turn`, `gate`); unlisted ones are removed |
+| `-DryRun` | Show what would change in `settings.json` and write nothing |
+| `-Uninstall` | Remove this tool's settings entries and CLAUDE.md note (backed up first); optionally clear the token and chat ID |
+| `-SkipTelegram` | Keep the current token and chat ID, e.g. to reinstall after pulling an update |
+| `-SkipLiveTest` | Don't send test messages |
+| `-Yes` | Accept every default without asking (needs the token and chat ID already set) |
+
+To update after pulling new code, run `.\setup.cmd -SkipTelegram`.
+
+The rest of this section is the same setup done by hand, if you'd rather not run a script.
+
+## Manual setup
 
 ### 1. Create your bot
 
@@ -176,8 +214,8 @@ restart is needed.
 - **Turn alerts only:** `[Environment]::SetEnvironmentVariable('TELEGRAM_TURN_ALERTS', 'off', 'User')`.
 - **All Telegram traffic:** clear `TELEGRAM_CHAT_ID`. The hooks then exit silently and every prompt stays at
   the PC.
-- **For good:** remove the entries from `~\.claude\settings.json`. For the gate, also remove the `ask`
-  rules and the section in `~\.claude\CLAUDE.md`.
+- **For good:** run `.\setup.cmd -Uninstall`. Or by hand, remove the entries from `~\.claude\settings.json`;
+  for the gate, also remove the `ask` rules and the section in `~\.claude\CLAUDE.md`.
 - **All hooks, temporarily:** add `"disableAllHooks": true` to `~\.claude\settings.json`.
 
 ## Security and privacy
@@ -239,9 +277,12 @@ Offline suites; they use a fake token and fake Telegram updates, and make no net
 pwsh -File .\tests\approve.tests.ps1
 pwsh -File .\tests\telegram-hooks.tests.ps1
 pwsh -File .\tests\gate-and-cards.tests.ps1
+pwsh -File .\tests\setup.tests.ps1
 ```
 
-They run the scripts in `hooks\` and write their scratch files under your temp folder.
+They run the scripts in `hooks\` and write their scratch files under your temp folder. `setup.tests.ps1`
+runs `setup.ps1` against throwaway Claude folders with `-SkipTelegram -SkipLiveTest`, so it never touches
+your real settings or environment.
 `approve.tests.ps1` skips its "no configuration" case when real `TELEGRAM_*` variables are set, because the
 hooks fall back to them.
 
@@ -254,8 +295,10 @@ hooks/
   telegram-turn.ps1          Stop hook (questions, session cards, replies)
   push-merge-gate.ps1        PreToolUse gate for git push / PR merges (no network)
 examples/
-  settings.template.json     what install.ps1 fills in and prints
-  CLAUDE.md                  optional note for ~/.claude/CLAUDE.md
+  settings.template.json     the settings entries; setup.ps1 and install.ps1 fill in your paths
+  CLAUDE.md                  the push/merge note for ~/.claude/CLAUDE.md
 tests/                       offline test suites
-install.ps1                  copies hooks/ to ~/.claude/hooks and prints the settings snippet
+setup.cmd                    double-click or run this; checks for PowerShell 7, then runs setup.ps1
+setup.ps1                    guided setup, update and uninstall
+install.ps1                  manual route: copies hooks/ and prints the settings snippet, edits nothing
 ```
